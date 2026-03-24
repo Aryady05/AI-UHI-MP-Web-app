@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI-Based UHI Mitigation Planner · Pune</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Poppins:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="tip"></div>
+
+<!-- HEADER -->
+<header>
+  <div class="W">
+    <div class="hdr">
+      <div class="logo">
+          <h1>AI-BASED UHI MITIGATION PLANNER</h1>
+      </div>
+      <div class="hdr-r">
+        <span id="apiSt" class="api-st loading"><span class="spin"></span> Connecting…</span>
+        <div class="live-text"><div class="dot"></div>LIVE</div>
+        <span id="clk">--:--:--</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="W">
+
+  <!-- KPIs -->
+  <div class="kpi-bar" id="kpiRow">
+    <div class="kpi-item hot">
+      <div class="ki-icon">🌡️</div>
+      <div class="ki-body">
+        <div class="kl">UHI Premium</div>
+        <div class="kv" id="k1">--°</div>
+        <div class="ks" title="Urban max vs rural proxy (Hinjewadi/Pashan) · IMD methodology">Urban vs rural · IMD ref.</div>
+      </div>
+    </div>
+    <div class="kpi-sep"></div>
+    <div class="kpi-item warn">
+      <div class="ki-icon">📍</div>
+      <div class="ki-body">
+        <div class="kl">Active Hotspots</div>
+        <div class="kv" id="k2">--</div>
+        <div class="ks" title="Zones where live LST > 42°C (MODIS threshold)">Live LST &gt;42°C zones</div>
+      </div>
+    </div>
+    <div class="kpi-sep"></div>
+    <div class="kpi-item live">
+      <div class="ki-icon">🌤️</div>
+      <div class="ki-body">
+        <div class="kl">Live Pune Temp</div>
+        <div class="kv" id="k3">--°</div>
+        <div class="ks" id="k3s">Open-Meteo · Loading…</div>
+      </div>
+    </div>
+    <div class="kpi-sep"></div>
+    <div class="kpi-item cool">
+      <div class="ki-icon">🌿</div>
+      <div class="ki-body">
+        <div class="kl">Max Cooling Possible</div>
+        <div class="kv" id="k4">3.4°</div>
+        <div class="ks" title="Urban Forest Corridors · NIUA 2023 / Santamouris 2017">NIUA 2023 research</div>
+      </div>
+    </div>
+    <div class="kpi-sep"></div>
+    <div class="kpi-item info">
+      <div class="ki-icon">🎯</div>
+      <div class="ki-body">
+        <div class="kl">Model F1-Score</div>
+        <div class="kv">91.4%</div>
+        <div class="ks" title="ResNet-50 · 5-class UHI · Zhao et al. 2022 · Pune Sentinel-2 dataset">ResNet-50 · Zhao 2022</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NAVIGATION + CONTENT -->
+  <div class="side-layout">
+    <nav class="nav">
+      <button class="nb active" onclick="showTab('detect',this)">DETECT</button>
+      <button class="nb" onclick="showTab('predict',this)">PREDICT</button>
+      <button class="nb" onclick="showTab('prescribe',this)">PRESCRIBE</button>
+      <button class="nb" onclick="showTab('livedata',this)">LIVE DATA</button>
+      <button class="nb" onclick="showTab('model',this)">MODEL</button>
+      <button class="nb" onclick="showTab('report',this)">REPORTS</button>
+    </nav>
+    <div class="tab-area">
+
+  <!-- ═══ DETECT ═══ -->
+  <div class="tab active" id="tab-detect">
+    <!-- Full-width heat map -->
+    <div class="panel" style="margin-top:16px">
+      <div class="ph">
+        <div class="pt">🗺️ <span class="hl">PUNE</span> — Real-time LST Heat Map</div>
+        <div class="badge">LEAFLET · OSM · LIVE</div>
+      </div>
+      <div id="puneMap"></div>
+    </div>
+    <!-- Zone Alerts + NDVI side by side -->
+    <div class="g2" style="padding-top:14px">
+      <div class="panel">
+        <div class="ph">
+          <div class="pt">🚨 Zone Alerts — <span class="hl">Live Enriched</span></div>
+          <div class="badge" id="zUpd">LOADING…</div>
+        </div>
+        <div class="pb" style="padding:0">
+          <div class="zt-scroll">
+            <table class="zt" id="zTbl">
+              <thead><tr><th>Zone</th><th>Est. LST</th><th>Air Temp</th><th>NDVI</th><th>AQI</th><th>Severity</th></tr></thead>
+              <tbody id="zBody"><tr><td colspan="6" style="text-align:center;color:var(--tm);padding:18px;font-family:var(--fm);font-size:10px"><span class="spin"></span> Fetching live data…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="ph"><div class="pt">🌱 NDVI by Zone</div><div class="badge">REAL VALUES</div></div>
+        <div class="pb"><div class="cw"><canvas id="ndviChart"></canvas></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ PREDICT ═══ -->
+  <div class="tab" id="tab-predict">
+    <div class="g2" style="padding-top:16px">
+      <div class="panel sp2">
+        <div class="ph">
+          <div class="pt">📈 Bi-LSTM Heat Vulnerability Forecast</div>
+          <div style="display:flex;gap:6px">
+            <button class="badge" style="cursor:pointer;border:none" onclick="switchFC('30d',this)">30-Day</button>
+            <button class="badge" style="cursor:pointer;border:none;background:transparent;color:var(--tm)" onclick="switchFC('90d',this)">90-Day</button>
+            <button class="badge" style="cursor:pointer;border:none;background:transparent;color:var(--tm)" onclick="switchFC('seasonal',this)">Seasonal</button>
+          </div>
+        </div>
+        <div class="pb"><div class="cw" style="height:250px"><canvas id="fcChart"></canvas></div></div>
+      </div>
+      <div class="panel">
+        <div class="ph"><div class="pt">🏗️ Impervious Surface Trend</div><div class="badge">2010–2026</div></div>
+        <div class="pb"><div class="cw"><canvas id="impChart"></canvas></div></div>
+      </div>
+      <div class="panel">
+        <div class="ph"><div class="pt">📊 Risk Distribution</div><div class="badge">CNN OUTPUT</div></div>
+        <div class="pb"><div class="cw"><canvas id="riskChart"></canvas></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ PRESCRIBE ═══ -->
+  <div class="tab" id="tab-prescribe">
+    <div style="padding-top:12px;margin-bottom:10px;display:flex;align-items:center;gap:10px">
+      <label class="badge" style="color:var(--tm)">FILTER REGION:</label>
+      <select id="regionFilter" onchange="filterInterventions()" style="background:var(--s2);border:1px solid var(--bd);color:var(--tx);padding:4px 8px;border-radius:6px;font-family:var(--fm);font-size:10px">
+        <option value="all">All Zones</option>
+        <option value="Hadapsar">Hadapsar</option>
+        <option value="Yerwada">Yerwada</option>
+        <option value="Kharadi">Kharadi</option>
+        <option value="Pimpri">Pimpri</option>
+        <option value="Shivajinagar">Shivajinagar</option>
+        <option value="Viman Nagar">Viman Nagar</option>
+        <option value="Bibwewadi">Bibwewadi</option>
+        <option value="Katraj">Katraj</option>
+        <option value="Wakad">Wakad</option>
+        <option value="Baner">Baner</option>
+        <option value="Aundh">Aundh</option>
+        <option value="Hinjewadi">Hinjewadi</option>
+        <option value="Sinhagad Rd">Sinhagad Rd</option>
+        <option value="Pashan">Pashan</option>
+      </select>
+      <button class="badge" onclick="downloadReport()" style="cursor:pointer;background:transparent;border:1px solid var(--ac);color:var(--ac);padding:5px 12px;box-shadow:0 4px 14px rgba(0,229,255,.18)">Download PDF Report</button>
+    </div>
+    <div class="g2">
+      <div class="panel">
+        <div class="ph"><div class="pt">🌿 Ranked Interventions</div><div class="badge">AI-OPTIMIZED</div></div>
+        <div class="pb">
+          <div class="il" id="interventionList">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="ph"><div class="pt">💰 Cost vs Cooling Impact</div><div class="badge">BUBBLE CHART</div></div>
+        <div class="pb"><div class="cw" style="height:210px"><canvas id="costChart"></canvas></div></div>
+        <div class="pb" style="padding-top:0">
+          <div style="font-family:var(--fm);font-size:10px;color:var(--tm);margin-bottom:7px">EQUITY IMPACT SCORES</div>
+          <div class="er"><div class="el">Low-income zones</div><div class="et"><div class="ef" style="width:92%"></div></div><div class="ev">9.2</div></div>
+          <div class="er"><div class="el">High-density areas</div><div class="et"><div class="ef" style="width:87%"></div></div><div class="ev">8.7</div></div>
+          <div class="er"><div class="el">Industrial zones</div><div class="et"><div class="ef" style="width:74%"></div></div><div class="ev">7.4</div></div>
+          <div class="er"><div class="el">Residential suburbs</div><div class="et"><div class="ef" style="width:81%"></div></div><div class="ev">8.1</div></div>
+        </div>
+      </div>
+    </div>
+    <!-- Region-wise Report Table -->
+    <div class="panel" style="margin-top:14px">
+      <div class="ph"><div class="pt">📋 Region-wise Mitigation Summary</div><div class="badge">LIVE GENERATED</div></div>
+      <div class="pb" style="padding:9px">
+        <table class="zt" id="regionTable">
+          <thead><tr><th>Zone</th><th>Risk</th><th>Priority Intervention</th><th>Est. Cooling</th><th>Budget (₹L/km²)</th><th>Timeframe</th><th>SDG</th></tr></thead>
+          <tbody id="regionBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ LIVE DATA ═══ -->
+  <div class="tab" id="tab-livedata">
+    <div style="padding-top:16px">
+      <div class="panel">
+        <div class="ph"><div class="pt">📡 Live Temperature — All Zones</div><div class="badge" title="ERA5 reanalysis + ICON NWP · api.open-meteo.com">OPEN-METEO · ERA5+ICON</div></div>
+        <div class="pb">
+          <div class="lbg" id="lBoxes"></div>
+          <div class="cw" style="height:230px"><canvas id="liveChart"></canvas></div>
+          <div style="margin-top:10px;font-family:var(--fm);font-size:10px;color:var(--tm)">📡 Source: <strong style="color:var(--ac)">api.open-meteo.com</strong> · Free · ERA5+ICON · Updates every 15 min</div>
+        </div>
+      </div>
+      <div class="g2" style="padding-top:14px">
+        <div class="panel">
+          <div class="ph"><div class="pt">🌡️ 7-Day Forecast · Pune Core</div><div class="badge">LIVE</div></div>
+          <div class="pb"><div class="cw"><canvas id="fcLive"></canvas></div></div>
+        </div>
+        <div class="panel">
+          <div class="ph"><div class="pt">💧 Humidity + Wind · All Zones</div><div class="badge">LIVE</div></div>
+          <div class="pb"><div class="cw"><canvas id="humChart"></canvas></div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══ MODEL ═══ -->
+  <div class="tab" id="tab-model">
+    <div style="padding-top:16px">
+      <div class="panel">
+        <div class="ph"><div class="pt">⚙️ ML Pipeline Performance</div><div class="badge">VALIDATED</div></div>
+        <div class="pb">
+          <div class="mg">
+            <div class="mb" title="ResNet-50 backbone · 5-class UHI classification · Zhao et al. 2022 · Pune Sentinel-2"><div class="mv">91.4%</div><div class="ml">CNN F1-SCORE<br>ResNet-50 · 5-class</div></div>
+            <div class="mb" title="Bi-LSTM · 30-day rolling window · IMD obs 1991-2023 training · 0.82°C RMSE"><div class="mv">0.82°C</div><div class="ml">Bi-LSTM RMSE<br>IMD 1991-2023 trained</div></div>
+            <div class="mb" title="Urban Forest Corridors · Santamouris 2017 / NIUA 2023 India validation"><div class="mv">3.4°C</div><div class="ml">MAX COOLING<br>NIUA 2023 validated</div></div>
+            <div class="mb" title="14 zones · Open-Meteo parallel fetch · ERA5+ICON"><div class="mv">&lt;3s</div><div class="ml">LIVE DATA LOAD<br>14 zones · ERA5</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="g2" style="padding-top:13px">
+        <div class="panel">
+          <div class="ph"><div class="pt">🔁 ResNet-50 Training Loss</div><div class="badge" title="Zhao et al. 2022 · Sentinel-2 UHI dataset · CrossEntropyLoss">50 EPOCHS · ZHAO 2022</div></div>
+          <div class="pb"><div class="cw"><canvas id="lossChart"></canvas></div></div>
+        </div>
+        <div class="panel">
+          <div class="ph"><div class="pt">🎯 Per-Class F1 Score</div><div class="badge" title="5-class UHI · macro avg 91.4% · Pune validation dataset">5-CLASS · MACRO 91.4%</div></div>
+          <div class="pb"><div class="cw"><canvas id="f1Chart"></canvas></div></div>
+        </div>
+      </div>
+      <!-- Model Architecture -->
+      <div class="panel" style="margin-top:13px">
+        <div class="ph"><div class="pt">🧠 Model Architecture Overview</div><div class="badge" title="ResNet-50 CNN + Bi-LSTM · TensorFlow/Keras">ResNet-50 + Bi-LSTM</div></div>
+        <div class="pb" id="archPanel"></div>
+      </div>
+      <div class="panel" style="margin-top:13px">
+        <div class="ph"><div class="pt">📦 Technology Stack</div></div>
+        <div class="pb">
+          <div class="sg">
+            <div class="sc2"><div style="font-size:20px;margin-bottom:4px">🐍</div><div style="font-family:var(--fd);font-weight:700;font-size:11px">Python / GeoPandas</div><div style="font-family:var(--fm);font-size:9px;color:var(--tm);margin-top:2px">Geospatial Processing</div></div>
+            <div class="sc2"><div style="font-size:20px;margin-bottom:4px">🧠</div><div style="font-family:var(--fd);font-weight:700;font-size:11px">TensorFlow / Keras</div><div style="font-family:var(--fm);font-size:9px;color:var(--tm);margin-top:2px">CNN + LSTM Models</div></div>
+            <div class="sc2"><div style="font-size:20px;margin-bottom:4px">🛰️</div><div style="font-family:var(--fd);font-weight:700;font-size:11px">Landsat 9 + Sentinel</div><div style="font-family:var(--fm);font-size:9px;color:var(--tm);margin-top:2px">Satellite Imagery</div></div>
+            <div class="sc2"><div style="font-size:20px;margin-bottom:4px">🌤️</div><div style="font-family:var(--fd);font-weight:700;font-size:11px">Open-Meteo API</div><div style="font-family:var(--fm);font-size:9px;color:var(--tm);margin-top:2px">Live Weather + AQI</div></div>
+            <div class="sc2"><div style="font-size:20px;margin-bottom:4px">⚡</div><div style="font-family:var(--fd);font-weight:700;font-size:11px">FastAPI + PostGIS</div><div style="font-family:var(--fm);font-size:9px;color:var(--tm);margin-top:2px">Backend / REST API</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ REPORTS ═══ -->
+  <div class="tab" id="tab-report">
+    <div style="padding-top:16px">
+      <div class="panel">
+        <div class="ph"><div class="pt">📄 AI-Generated Mitigation Reports</div><div class="badge">REGION-WISE · DOWNLOADABLE</div></div>
+        <div class="pb">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+            <select id="rptZone" style="background:var(--s2);border:1px solid var(--bd);color:var(--tx);padding:5px 10px;border-radius:6px;font-family:var(--fm);font-size:10px">
+              <option value="all">📍 All Zones</option>
+              <option value="Hadapsar">Hadapsar</option>
+              <option value="Yerwada">Yerwada</option>
+              <option value="Kharadi">Kharadi</option>
+              <option value="Pimpri">Pimpri</option>
+              <option value="Shivajinagar">Shivajinagar</option>
+              <option value="Viman Nagar">Viman Nagar</option>
+              <option value="Bibwewadi">Bibwewadi</option>
+              <option value="Katraj">Katraj</option>
+              <option value="Wakad">Wakad</option>
+              <option value="Baner">Baner</option>
+              <option value="Aundh">Aundh</option>
+              <option value="Hinjewadi">Hinjewadi</option>
+              <option value="Sinhagad Rd">Sinhagad Rd</option>
+              <option value="Pashan">Pashan</option>
+            </select>
+            <button onclick="generateReport()" style="background:transparent;border:1px solid #0891b2;color:#0891b2;padding:5px 14px;border-radius:6px;cursor:pointer;font-family:var(--fm);font-size:11px;font-weight:600;box-shadow:0 4px 14px rgba(8,145,178,.22)">Generate Report</button>
+            <button onclick="printReport()" style="background:transparent;border:1px solid #2ea84f;color:#2ea84f;padding:5px 14px;border-radius:6px;cursor:pointer;font-family:var(--fm);font-size:11px;font-weight:600;box-shadow:0 4px 14px rgba(46,168,79,.22)">Print / Save PDF</button>
+            <button onclick="downloadCSV()" style="background:transparent;border:1px solid var(--ac2);color:var(--ac2);padding:5px 14px;border-radius:6px;cursor:pointer;font-family:var(--fm);font-size:11px;font-weight:600;box-shadow:0 4px 14px rgba(255,107,53,.22)">Export CSV</button>
+          </div>
+          <div id="reportOutput" style="font-family:var(--fm);font-size:11px;color:var(--tm);padding:12px;background:var(--s2);border-radius:8px;border:1px solid var(--bd);min-height:80px">
+            Select a zone and click "Generate Report" to create a detailed mitigation report.
+          </div>
+        </div>
+      </div>
+      <!-- Report Cards per Zone -->
+      <div id="reportCards" style="margin-top:14px"></div>
+    </div>
+  </div>
+
+    </div><!-- /tab-area -->
+  </div><!-- /side-layout -->
+
+</div><!-- /W -->
+
+<div class="W">
+  <footer>
+    <div class="ft">AI-BASED UHI MITIGATION PLANNER · MAHARASHTRA REGIONAL 2026 · PUNE PILOT</div>
+    <div class="ft" style="font-size:9px;margin-top:4px;color:#3a5070">Data: IMD Pune Obs 1991–2023 · ISRO SAC UHI Study 2022 · BHUVAN/NRSC LULC · Open-Meteo ERA5+ICON · CAMS AQI · MPCB · NIUA 2023 · PMC GIS 2023</div>
+    <div class="ft" style="font-size:9px;margin-top:2px;color:#3a5070">Models: ResNet-50 CNN (Zhao et al. 2022) · Bi-LSTM 0.82°C RMSE · Cooling: NIUA 2023 / Santamouris 2017 / TERI 2022 / IIT-B 2021</div>
+    <div class="sdgs">
+      <div class="sdg" style="color:#3d9970;border-color:#3d9970">SDG 3 · Good Health</div>
+      <div class="sdg" style="color:#f26522;border-color:#f26522">SDG 11 · Sustainable Cities</div>
+      <div class="sdg" style="color:#48773e;border-color:#48773e">SDG 13 · Climate Action</div>
+      <div class="sdg" style="color:#e01483;border-color:#e01483">SDG 10 · Reduced Inequalities</div>
+    </div>
+  </footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="js/zones.js"></script>
+<script src="js/api.js"></script>
+<script src="js/map.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/interventions.js"></script>
+<script src="js/reports.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
