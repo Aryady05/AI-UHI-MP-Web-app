@@ -3,6 +3,12 @@
 
 ---
 
+## 📝 Project Description
+
+The **AI-Based Urban Heat Island Mitigation Planner** is an interactive web dashboard designed to help city planners and researchers understand, predict, and reduce Urban Heat Island (UHI) effects across the 14 zones of Pune, India. It combines live weather and air-quality data with two AI models — a **ResNet-50 CNN** that classifies UHI risk from satellite imagery (F1 = 91.4 %) and a **Bidirectional LSTM** that forecasts Land Surface Temperature up to 90 days ahead (RMSE = 0.82 °C) — and pairs the results with a cost-benefit intervention optimizer that ranks green-infrastructure and cool-surface strategies by cooling impact per rupee spent. The dashboard features an interactive Leaflet heat map, zone-level AQI monitoring, downloadable mitigation reports (CSV / PDF), and full Jupyter notebooks so the ML pipeline can be reproduced and extended. All live data APIs are free and require no API key, making the tool immediately deployable for municipal decision-making.
+
+---
+
 ## 📁 Project Structure
 
 ```
